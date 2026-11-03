@@ -130,12 +130,13 @@ end
 - `request.filtered_parameters` on a declared route: the `Parameters` line, the `params` of the `process_action.action_controller` event, and what an error reporter reads from the request
 - `response.filtered_location`: the `Redirected to` line and the `location` of the same event
 - the message of `ActionController::RoutingError`, in the exception itself, so the line `ActionDispatch::DebugExceptions` logs and whatever an error reporter is handed are both filtered
+- the values of declared names in the message of `ActionController::UrlGenerationError`, which a route helper raises with the values it was given
 
 Rails' own filtering of the query string and of the redirect location stays as it is; the path filter runs on top of it.
 
 ## Why These Are Overrides
 
-Rails has no hook for any of this: `filtered_path` and `filtered_location` are computed and read inside Rails, and the routing error is raised with the raw path. Each override is a module prepended from the railtie, calls `super`, and filters the result. It is the same thing the private gem it reproduces does, and `test/overrides_test.rb` pins that each method is still there on the Rails in the bundle, so a Rails that renames one fails loudly instead of leaking quietly.
+Rails has no hook for any of this: `filtered_path` and `filtered_location` are computed and read inside Rails, and the routing errors are raised with the raw path or the values a route helper was given. Each override is a module prepended from the railtie, calls `super`, and filters the result. It is the same thing the private gem it reproduces does, and `test/overrides_test.rb` pins that each method is still there on the Rails in the bundle, so a Rails that renames one fails loudly instead of leaking quietly.
 
 | Rails method | Override | For |
 | --- | --- | --- |
@@ -143,6 +144,7 @@ Rails has no hook for any of this: `filtered_path` and `filtered_location` are c
 | `ActionDispatch::Http::FilterParameters#parameter_filter` | `FilterPathParameters::Request` | the declared names in a declared route's parameters |
 | `ActionDispatch::Http::FilterRedirect#filtered_location` | `FilterPathParameters::Response` | the `Redirected to` line |
 | `ActionController::RoutingError#initialize` | `FilterPathParameters::RoutingError` | the `No route matches` message |
+| `ActionController::UrlGenerationError#initialize` | `FilterPathParameters::UrlGenerationError` | the values in a route helper's `No route matches` message |
 | `ActionDispatch::Routing::RouteSet#clear!` | `FilterPathParameters::RouteSet` | dropping a route set's declarations when its routes are cleared for a redraw |
 
 `filter_path_parameters` itself is a method added to `ActionDispatch::Routing::Mapper`, not an override.

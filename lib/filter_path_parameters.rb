@@ -5,6 +5,7 @@ require "filter_path_parameters/route_set"
 require "filter_path_parameters/request"
 require "filter_path_parameters/response"
 require "filter_path_parameters/routing_error"
+require "filter_path_parameters/url_generation_error"
 require "filter_path_parameters/assertions"
 require "filter_path_parameters/railtie" if defined?(Rails::Railtie)
 
@@ -35,12 +36,16 @@ module FilterPathParameters
 
     def declare(route_set, routes, names)
       registry(route_set).concat routes.filter_map { |route| Matcher.build(route.path, names) }
-      @matchers = @parameters = nil
+      @matchers = @parameters = @names = nil
     end
 
     def reset(route_set)
       registries.delete(route_set)
-      @matchers = @parameters = nil
+      @matchers = @parameters = @names = nil
+    end
+
+    def names
+      @names ||= matchers.flat_map(&:names).uniq
     end
 
     # The declared names of the routes drawn with this pattern, matching their parameters' keys.

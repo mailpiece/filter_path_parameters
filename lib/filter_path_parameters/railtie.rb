@@ -9,6 +9,7 @@ module FilterPathParameters
       ActionDispatch::Http::FilterParameters.prepend Request
       ActionDispatch::Http::FilterRedirect.prepend Response
       ActionController::RoutingError.prepend RoutingError
+      ActionController::UrlGenerationError.prepend UrlGenerationError
     end
   end
 end

@@ -33,6 +33,14 @@ class FilterPathParameters::OverridesTest < FilterPathParameters::TestCase
     assert_equal [ [ :req, :message ], [ :opt, :failures ] ], method.super_method.parameters
   end
 
+  def test_url_generation_error_is_still_built_with_a_message
+    method = ActionController::UrlGenerationError.instance_method(:initialize)
+
+    assert_equal FilterPathParameters::UrlGenerationError, method.owner
+    assert_equal ActionController::UrlGenerationError, method.super_method.owner
+    assert_equal [ :req, :message ], method.super_method.parameters.first
+  end
+
   def test_clear_is_still_rails
     method = ActionDispatch::Routing::RouteSet.instance_method(:clear!)
 
