@@ -10,11 +10,14 @@ module FilterPathParameters
       terminals = path.spec.select(&:terminal?)
 
       if last = terminals.rindex { |node| node.symbol? && names.include?(node.name) }
-        new(terminals.first(last + 1), names)
+        new(path.spec.to_s, terminals.first(last + 1), names)
       end
     end
 
-    def initialize(terminals, names)
+    attr_reader :uri_pattern, :names
+
+    def initialize(uri_pattern, terminals, names)
+      @uri_pattern = uri_pattern
       @names = terminals.filter_map { |node| node.name if node.symbol? && names.include?(node.name) }
       @regexp = /\A#{terminals.map { |node| pattern(node, names) }.join}/i
     end

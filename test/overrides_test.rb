@@ -10,6 +10,14 @@ class FilterPathParameters::OverridesTest < FilterPathParameters::TestCase
     assert_equal ActionDispatch::Http::FilterParameters, method.super_method.owner
   end
 
+  def test_parameter_filter_is_still_rails
+    method = ActionDispatch::Request.instance_method(:parameter_filter)
+
+    assert_equal FilterPathParameters::Request, method.owner
+    assert_equal ActionDispatch::Http::FilterParameters, method.super_method.owner
+    assert ActionDispatch::Request.method_defined?(:route_uri_pattern)
+  end
+
   def test_filtered_location_is_still_rails
     method = ActionDispatch::Response.instance_method(:filtered_location)
 

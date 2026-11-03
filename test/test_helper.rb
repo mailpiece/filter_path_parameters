@@ -48,6 +48,12 @@ class BoardsController < ActionController::Base
   end
 end
 
+class TransfersController < ActionController::Base
+  def show
+    render plain: params[:id]
+  end
+end
+
 class RedirectsController < ActionController::Base
   def show
     redirect_to join_path("k7m2x9qp4", script_name: "/800966886", x: 1)
@@ -70,6 +76,10 @@ def draw_routes
 
     filter_path_parameters :path do
       get "files/*path", to: "files#show"
+    end
+
+    filter_path_parameters :id do
+      resources :transfers, only: :show
     end
 
     get "boards/:id", to: "boards#show", as: :board

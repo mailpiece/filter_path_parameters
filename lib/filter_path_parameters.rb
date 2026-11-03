@@ -35,17 +35,28 @@ module FilterPathParameters
 
     def declare(route_set, routes, names)
       registry(route_set).concat routes.filter_map { |route| Matcher.build(route.path, names) }
-      @matchers = nil
+      @matchers = @parameters = nil
     end
 
     def reset(route_set)
       registries.delete(route_set)
-      @matchers = nil
+      @matchers = @parameters = nil
+    end
+
+    # The declared names of the routes drawn with this pattern, matching their parameters' keys.
+    def parameters_for(pattern)
+      parameters[pattern]
     end
 
     private
       def matchers
         @matchers ||= registries.values.flatten
+      end
+
+      def parameters
+        @parameters ||= matchers.group_by(&:uri_pattern).transform_values do |matchers|
+          /\A#{Regexp.union(matchers.flat_map(&:names).uniq)}\z/
+        end
       end
 
       # One list per route set, so a redraw of one set keeps the others' declarations.

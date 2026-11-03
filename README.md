@@ -80,6 +80,8 @@ end
 
 A path is filtered when it starts with a declared route's segments, whether or not anything routes the rest, so `/join/k7m2x9qp4/xmlrpc.php` becomes `/join/[FILTERED]/xmlrpc.php`. A declared segment is one whole path segment, format suffix included: `/join/k7m2x9qp4.json` becomes `/join/[FILTERED]`. A glob (`*path`) takes the rest of the path. A dynamic segment that is not declared, like the `:id` in `/mailboxes/:id/forwardings/:token`, matches any segment and is kept. Whatever follows the last declared segment is left alone. Rails squeezes repeated slashes before routing, so `//join/k7m2x9qp4` is matched too, and a literal in another case is filtered rather than logged.
 
+On a request a declared route serves, its declared names are filtered from the request's parameters too, so `filter_path_parameters :id` around `resources :transfers` logs `Parameters: {"id" => "[FILTERED]"}` for a transfer while `id` stays visible on every other route, without adding `id` to `filter_parameters`. A key of that name nested in the body is filtered too.
+
 Filtering more than needed is fine; too little is not. Blocks nest, and the names of each block apply to the routes drawn inside it.
 
 Routes reload in development; the declarations are rebuilt with every draw and never accumulate across reloads.
@@ -125,6 +127,7 @@ end
 ## What Is Filtered
 
 - `request.filtered_path`: the `Started` line, the `path` of the `process_action.action_controller` event, and whatever reads either
+- `request.filtered_parameters` on a declared route: the `Parameters` line, the `params` of the `process_action.action_controller` event, and what an error reporter reads from the request
 - `response.filtered_location`: the `Redirected to` line and the `location` of the same event
 - the message of `ActionController::RoutingError`, in the exception itself, so the line `ActionDispatch::DebugExceptions` logs and whatever an error reporter is handed are both filtered
 
@@ -137,6 +140,7 @@ Rails has no hook for any of this: `filtered_path` and `filtered_location` are c
 | Rails method | Override | For |
 | --- | --- | --- |
 | `ActionDispatch::Http::FilterParameters#filtered_path` | `FilterPathParameters::Request` | the `Started` line and the `process_action` event |
+| `ActionDispatch::Http::FilterParameters#parameter_filter` | `FilterPathParameters::Request` | the declared names in a declared route's parameters |
 | `ActionDispatch::Http::FilterRedirect#filtered_location` | `FilterPathParameters::Response` | the `Redirected to` line |
 | `ActionController::RoutingError#initialize` | `FilterPathParameters::RoutingError` | the `No route matches` message |
 | `ActionDispatch::Routing::RouteSet#clear!` | `FilterPathParameters::RouteSet` | dropping a route set's declarations when its routes are cleared for a redraw |
