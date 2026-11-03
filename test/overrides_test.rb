@@ -10,6 +10,14 @@ class FilterPathParameters::OverridesTest < FilterPathParameters::TestCase
     assert_equal ActionDispatch::Http::FilterParameters, method.super_method.owner
   end
 
+  def test_parameter_filter_is_still_rails
+    method = ActionDispatch::Request.instance_method(:parameter_filter)
+
+    assert_equal FilterPathParameters::Request, method.owner
+    assert_equal ActionDispatch::Http::FilterParameters, method.super_method.owner
+    assert ActionDispatch::Request.method_defined?(:route_uri_pattern)
+  end
+
   def test_filtered_location_is_still_rails
     method = ActionDispatch::Response.instance_method(:filtered_location)
 
@@ -23,6 +31,14 @@ class FilterPathParameters::OverridesTest < FilterPathParameters::TestCase
     assert_equal FilterPathParameters::RoutingError, method.owner
     assert_equal ActionController::RoutingError, method.super_method.owner
     assert_equal [ [ :req, :message ], [ :opt, :failures ] ], method.super_method.parameters
+  end
+
+  def test_url_generation_error_is_still_built_with_a_message
+    method = ActionController::UrlGenerationError.instance_method(:initialize)
+
+    assert_equal FilterPathParameters::UrlGenerationError, method.owner
+    assert_equal ActionController::UrlGenerationError, method.super_method.owner
+    assert_equal [ :req, :message ], method.super_method.parameters.first
   end
 
   def test_clear_is_still_rails

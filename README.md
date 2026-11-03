@@ -15,6 +15,7 @@ Rails' `config.filter_parameters` filters query strings and form bodies from the
 - [Filtering a Path Yourself](#filtering-a-path-yourself)
 - [Testing Your Routes](#testing-your-routes)
 - [What Is Filtered](#what-is-filtered)
+- [What Is Not Filtered](#what-is-not-filtered)
 - [Why These Are Overrides](#why-these-are-overrides)
 - [The Proxy in Front](#the-proxy-in-front)
 - [Testing](#testing)
@@ -80,6 +81,8 @@ end
 
 A path is filtered when it starts with a declared route's segments, whether or not anything routes the rest, so `/join/k7m2x9qp4/xmlrpc.php` becomes `/join/[FILTERED]/xmlrpc.php`. A declared segment is one whole path segment, format suffix included: `/join/k7m2x9qp4.json` becomes `/join/[FILTERED]`. A glob (`*path`) takes the rest of the path. A dynamic segment that is not declared, like the `:id` in `/mailboxes/:id/forwardings/:token`, matches any segment and is kept. Whatever follows the last declared segment is left alone. Rails squeezes repeated slashes before routing, so `//join/k7m2x9qp4` is matched too, and a literal in another case is filtered rather than logged.
 
+On a request a declared route serves, its declared names are filtered from the request's parameters too, so `filter_path_parameters :id` around `resources :transfers` logs `Parameters: {"id" => "[FILTERED]"}` for a transfer while `id` stays visible on every other route, without adding `id` to `filter_parameters`. A key of that name nested in the body is filtered too.
+
 Filtering more than needed is fine; too little is not. Blocks nest, and the names of each block apply to the routes drawn inside it.
 
 Routes reload in development; the declarations are rebuilt with every draw and never accumulate across reloads.
@@ -125,20 +128,39 @@ end
 ## What Is Filtered
 
 - `request.filtered_path`: the `Started` line, the `path` of the `process_action.action_controller` event, and whatever reads either
+- `request.filtered_parameters` on a declared route: the `Parameters` line, the `params` of the `process_action.action_controller` event, and what an error reporter reads from the request
 - `response.filtered_location`: the `Redirected to` line and the `location` of the same event
 - the message of `ActionController::RoutingError`, in the exception itself, so the line `ActionDispatch::DebugExceptions` logs and whatever an error reporter is handed are both filtered
+- the values of declared names in the message of `ActionController::UrlGenerationError`, which a route helper raises with the values it was given
 
 Rails' own filtering of the query string and of the redirect location stays as it is; the path filter runs on top of it.
 
+## What Is Not Filtered
+
+- the message of any other exception, such as `ActionController::BadRequest` for a segment that is not valid UTF-8, or an app's own `ActiveRecord::RecordNotFound`
+- the full URL an error reporter takes from the request, `request.url` or `request.original_url`, and `request.filtered_env`, which holds the raw path
+- the `Referer` header, when a page at a declared path links elsewhere
+- in development and test, the `Started` line of the first request, when routes are loaded lazily and nothing is declared yet, which `config.eager_load = true` closes
+
+Configure an error reporter to filter its URL and headers with `FilterPathParameters.filter_url`.
+
+A declared route's path is not filtered, or not in full, when the route has one of these shapes:
+
+- an optional group before a declared segment, as in `scope "(:locale)"`: a path without the group is left whole
+- routes declared inside a mounted engine, or in an app served under a sub-URI, whose paths carry a prefix the route does not; `FilterPathParameters.prefix` covers a fixed one
+- a constraint on a declared segment that allows `/`: only the value's first segment is filtered
+
 ## Why These Are Overrides
 
-Rails has no hook for any of this: `filtered_path` and `filtered_location` are computed and read inside Rails, and the routing error is raised with the raw path. Each override is a module prepended from the railtie, calls `super`, and filters the result. It is the same thing the private gem it reproduces does, and `test/overrides_test.rb` pins that each method is still there on the Rails in the bundle, so a Rails that renames one fails loudly instead of leaking quietly.
+Rails has no hook for any of this: `filtered_path` and `filtered_location` are computed and read inside Rails, and the routing errors are raised with the raw path or the values a route helper was given. Each override is a module prepended from the railtie, calls `super`, and filters the result. It is the same thing the private gem it reproduces does, and `test/overrides_test.rb` pins that each method is still there on the Rails in the bundle, so a Rails that renames one fails loudly instead of leaking quietly.
 
 | Rails method | Override | For |
 | --- | --- | --- |
 | `ActionDispatch::Http::FilterParameters#filtered_path` | `FilterPathParameters::Request` | the `Started` line and the `process_action` event |
+| `ActionDispatch::Http::FilterParameters#parameter_filter` | `FilterPathParameters::Request` | the declared names in a declared route's parameters |
 | `ActionDispatch::Http::FilterRedirect#filtered_location` | `FilterPathParameters::Response` | the `Redirected to` line |
 | `ActionController::RoutingError#initialize` | `FilterPathParameters::RoutingError` | the `No route matches` message |
+| `ActionController::UrlGenerationError#initialize` | `FilterPathParameters::UrlGenerationError` | the values in a route helper's `No route matches` message |
 | `ActionDispatch::Routing::RouteSet#clear!` | `FilterPathParameters::RouteSet` | dropping a route set's declarations when its routes are cleared for a redraw |
 
 `filter_path_parameters` itself is a method added to `ActionDispatch::Routing::Mapper`, not an override.

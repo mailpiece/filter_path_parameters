@@ -62,4 +62,29 @@ class FilterPathParameters::LoggingTest < FilterPathParameters::IntegrationTestC
     assert_equal "t0k3n", response.body
     assert_includes output, %(Started GET "/mailboxes/42/forwardings/[FILTERED]/confirmation")
   end
+
+  def test_a_declared_name_is_filtered_in_the_parameters
+    output = logged { get "/transfers/s3cr3t?x=1" }
+
+    assert_equal "s3cr3t", response.body
+    assert_includes output, %(Parameters: {"x" => "1", "id" => "[FILTERED]"})
+    refute_includes output, "s3cr3t"
+  end
+
+  def test_the_process_action_event_params_are_filtered
+    params = []
+    callback = ->(event) { params << event.payload[:params] }
+
+    ActiveSupport::Notifications.subscribed(callback, "process_action.action_controller") do
+      get "/transfers/s3cr3t"
+    end
+
+    assert_equal "[FILTERED]", params.sole["id"]
+  end
+
+  def test_the_same_name_on_an_undeclared_route_is_logged
+    output = logged { get "/boards/42" }
+
+    assert_includes output, %(Parameters: {"id" => "42"})
+  end
 end
