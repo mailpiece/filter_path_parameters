@@ -15,6 +15,7 @@ Rails' `config.filter_parameters` filters query strings and form bodies from the
 - [Filtering a Path Yourself](#filtering-a-path-yourself)
 - [Testing Your Routes](#testing-your-routes)
 - [What Is Filtered](#what-is-filtered)
+- [What Is Not Filtered](#what-is-not-filtered)
 - [Why These Are Overrides](#why-these-are-overrides)
 - [The Proxy in Front](#the-proxy-in-front)
 - [Testing](#testing)
@@ -133,6 +134,21 @@ end
 - the values of declared names in the message of `ActionController::UrlGenerationError`, which a route helper raises with the values it was given
 
 Rails' own filtering of the query string and of the redirect location stays as it is; the path filter runs on top of it.
+
+## What Is Not Filtered
+
+- the message of any other exception, such as `ActionController::BadRequest` for a segment that is not valid UTF-8, or an app's own `ActiveRecord::RecordNotFound`
+- the full URL an error reporter takes from the request, `request.url` or `request.original_url`, and `request.filtered_env`, which holds the raw path
+- the `Referer` header, when a page at a declared path links elsewhere
+- in development and test, the `Started` line of the first request, when routes are loaded lazily and nothing is declared yet, which `config.eager_load = true` closes
+
+Configure an error reporter to filter its URL and headers with `FilterPathParameters.filter_url`.
+
+A declared route's path is not filtered, or not in full, when the route has one of these shapes:
+
+- an optional group before a declared segment, as in `scope "(:locale)"`: a path without the group is left whole
+- routes declared inside a mounted engine, or in an app served under a sub-URI, whose paths carry a prefix the route does not; `FilterPathParameters.prefix` covers a fixed one
+- a constraint on a declared segment that allows `/`: only the value's first segment is filtered
 
 ## Why These Are Overrides
 
